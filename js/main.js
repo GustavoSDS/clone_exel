@@ -10,19 +10,18 @@ const COLUMNS = 6;
 const FIRST_CHAR_CODE = 65;
 
 const range = (length) => Array.from({ length }, (_, i) => i);
-const getColumnLetter = (column) =>
-	String.fromCharCode(FIRST_CHAR_CODE + column);
+const getColumn = (column) => String.fromCharCode(FIRST_CHAR_CODE + column);
 
 let STATE = range(COLUMNS).map((i) =>
-	range(ROWS).map((j) => ({ computedValue: "", value: "" }))
+	range(ROWS).map((j) => ({ computedValue: 0, value: 0 }))
 );
 
 /* Functions */
-function renderSpreadsheet() {
+function renderSpreadSheet() {
 	const headerHTML = `<tr>
     <th>&nbsp;</th>
     ${range(COLUMNS)
-			.map((i) => `<th>${getColumnLetter(i)}</th>`)
+			.map((i) => `<th>${getColumn(i)}</th>`)
 			.join("")}
     </tr>`;
 	$tableHead.innerHTML = headerHTML;
@@ -48,28 +47,32 @@ function renderSpreadsheet() {
 	$tableBody.innerHTML = bodyHTML;
 }
 
-function updateCell(x, y, value) {
+function updateCell({ x, y, value }) {
 	const newState = structuredClone(STATE);
-	const constants = generateCellsConstants(STATE);
+	const constants = generateCellsConstants(newState);
 
 	const cell = newState[x][y];
 
-	cell.computedValue = calculateValue(value, constants);
-	cell.value = value;
+	cell.computedValue = computeValue(value, constants); // -> span
+	cell.value = value; // -> input
 
 	newState[x][y] = cell;
 
+	computeAllCells(newState, generateCellsConstants(newState));
+
 	STATE = newState;
-	renderSpreadsheet();
+
+	renderSpreadSheet();
 }
 
-function calculateValue(value, constants) {
+function computeValue(value, constants) {
+	if (typeof value === "number") return value;
 	if (!value.startsWith("=")) return value;
 
 	const formula = value.slice(1);
 	let computedValue;
 	try {
-        // TODO: MEJORAR ESTO, CON UNA LIBRERÍA DE CALCULO
+		// TODO: MEJORAR ESTO, CON UNA LIBRERÍA DE CALCULO
 		computedValue = eval(`
             (()=>{
                 ${constants}
@@ -86,22 +89,25 @@ function generateCellsConstants(cells) {
 		.map((rows, x) => {
 			return rows
 				.map((cell, y) => {
-					const letter = getColumnLetter(x);
+					const letter = getColumn(x);
 					const cellId = `${letter}${y + 1}`;
 					if (cell.computedValue)
 						return `const ${cellId} = ${cell.computedValue};`;
-				}).join("\n");
-		}).join("\n");
+				})
+				.join("\n");
+		})
+		.join("\n");
 }
 
 // TODO: OBSERVAR O SUSCRIBIRSE A LAS CELDAS QUE ME INTERESAN SUS VALORES
 function computeAllCells(cells, constants) {
-    cells.forEach((rows, x) => {
-        rows.forEach((cell, y) => {
-            const computedValue = computedValue(cell.value, constants);
-            cells.computedValue = computedValue;
-        })
-    })
+	console.log("computeAllCells");
+	cells.forEach((rows, x) => {
+		rows.forEach((cell, y) => {
+			const computedValue = computeValue(cell.value, constants);
+			cell.computedValue = computedValue;
+		});
+	});
 }
 
 /* Event Listeners */
@@ -126,10 +132,10 @@ $tableBody.addEventListener("click", (e) => {
 		"blur",
 		() => {
 			if ($input.value === STATE[x][y].value) return;
-			updateCell(x, y, $input.value);
+			updateCell({ x, y, value: $input.value });
 		},
 		{ once: true }
 	);
 });
 
-renderSpreadsheet();
+renderSpreadSheet();
