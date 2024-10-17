@@ -15,6 +15,7 @@ const getColumn = (column) => String.fromCharCode(FIRST_CHAR_CODE + column);
 let STATE = range(COLUMNS).map((i) =>
 	range(ROWS).map((j) => ({ computedValue: 0, value: 0 }))
 );
+let selectedColumn = null;
 
 /* Functions */
 function renderSpreadSheet() {
@@ -35,7 +36,11 @@ function renderSpreadSheet() {
 						(column) =>
 							`
              <td data-x="${column}" data-y="${row}">
-                <span>${STATE[column][row].computedValue}</span>
+                <span>${
+									STATE[column][row].computedValue === 0
+										? STATE[column][row].value === "0" ? "" : ""
+										: STATE[column][row].computedValue
+								}</span>
                 <input type="text" value="${STATE[column][row].value}" />
              </td>
             `
@@ -53,8 +58,8 @@ function updateCell({ x, y, value }) {
 
 	const cell = newState[x][y];
 
-	cell.computedValue = computeValue(value, constants); // -> span
-	cell.value = value; // -> input
+	cell.computedValue = computeValue(value, constants);
+	cell.value = value;
 
 	newState[x][y] = cell;
 
@@ -101,7 +106,6 @@ function generateCellsConstants(cells) {
 
 // TODO: OBSERVAR O SUSCRIBIRSE A LAS CELDAS QUE ME INTERESAN SUS VALORES
 function computeAllCells(cells, constants) {
-	console.log("computeAllCells");
 	cells.forEach((rows, x) => {
 		rows.forEach((cell, y) => {
 			const computedValue = computeValue(cell.value, constants);
@@ -112,7 +116,6 @@ function computeAllCells(cells, constants) {
 
 /* Event Listeners */
 $tableBody.addEventListener("click", (e) => {
-	console.log(e.target);
 	const td = e.target.closest("td");
 	if (!td) return;
 
@@ -138,4 +141,55 @@ $tableBody.addEventListener("click", (e) => {
 	);
 });
 
+$tableHead.addEventListener("click", (e) => {
+	const th = e.target.closest("th");
+	if (!th) return;
+
+    const x = [...th.parentNode.children].indexOf(th);
+    if(x<=0) return;
+
+    selectedColumn = x - 1;
+    th.classList.toggle("selected");
+    $$(`tr td:nth-child(${x+1})`).forEach(td => td.classList.toggle("selected"));
+});
+
+document.addEventListener("keydown", (e) => {
+	if(e.key === "Backspace" && selectedColumn!==null){
+        range(ROWS).forEach(row => {
+            updateCell({ x: selectedColumn, y: row, value: 0 });
+        });
+        renderSpreadSheet();
+    }
+})
+
+document.addEventListener("copy", (event) => {
+    console.log("copiando");
+    if(selectedColumn!==null){
+        const columnValues = range(ROWS).map(row => STATE[selectedColumn][row].value);
+        event.clipboardData.setData("text/plain", columnValues.join("\n"));
+        event.preventDefault();
+    }
+});
+
+document.addEventListener("click", (event) => {
+    const {target} = event;
+
+    const isThClicked = target.matches("th");
+    const isTdClicked = target.matches("td");
+    if(!isThClicked && !isTdClicked) {
+        $$(".selected").forEach(td => td.classList.remove("selected"));
+        selectedColumn = null;
+        return;
+    }
+
+    
+});
+
 renderSpreadSheet();
+
+
+/* 
+TODO: HACER OPERACIONES POR RANGOS: A1:A10, A1:B10, A1:C10 DETECTANDO CUANDO SE QUIERE HACER UNA OPERACION POR RANGOS Y HACER UN FOREACH
+
+TODO: AÑADIR COPY DE LAS FILAS
+ */
